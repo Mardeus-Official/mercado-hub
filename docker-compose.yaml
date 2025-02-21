@@ -1,0 +1,79 @@
+version: '3.9'
+
+services:
+  traefik:
+    image: traefik:v3.0.4
+    container_name: traefik
+    restart: unless-stopped
+    labels:
+      traefik.enable: true
+      traefik.http.routers.dashboard.tls: true
+      traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard.rule: "Host(`traefik${SHARED_DOMAIN_SEGMENT}.local`)"
+      traefik.http.services.traefik.loadbalancer.server.port: "8080"
+    command:
+      - --api
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml
+      - ./certs/:/etc/certs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+      - "24678:24678"
+    networks:
+      - http
+    healthcheck:
+      test: [ CMD, "sh", "-c", "traefik healthcheck" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dns:
+    image: drpsychick/dnsmasq:latest
+    container_name: dnsmasq
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - '53:53/tcp'
+      - '53:53/udp'
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - http
+    healthcheck:
+      test: [ 'CMD-SHELL', 'nslookup localhost 127.0.0.1 || exit 1' ]
+      interval: 4s
+      timeout: 4s
+      retries: 8
+      start_period: 4s
+
+  identity-service:
+    container_name: identity-service
+    build:
+      context: ./services/identity
+      dockerfile: Dockerfile
+      target: app-dev
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.identity-service.tls: "true"
+      traefik.http.routers.identity-service.rule: Host(`identity-service${SHARED_DOMAIN_SEGMENT}.local`)
+      traefik.http.routers.identity-service.service: identity-service
+      traefik.http.services.identity-service.loadbalancer.server.port: 80
+    env_file:
+      - ./services/identity/.env
+    environment:
+      SERVER_NAME: http://identity-service${SHARED_DOMAIN_SEGMENT}.local, identity-service:80
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-^${SERVER_NAME:-localhost}|php$$}
+    volumes:
+      - ./services/identity:/app
+    networks:
+      - http
+
+networks:
+  http:
+    name: network.${COMPOSE_PROJECT_NAME}
