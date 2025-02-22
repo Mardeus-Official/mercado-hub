@@ -1,6 +1,7 @@
 version: '3.9'
 
 services:
+  ##### <Infrastructure services> #####
   traefik:
     image: traefik:v3.0.4
     container_name: traefik
@@ -51,6 +52,21 @@ services:
       retries: 8
       start_period: 4s
 
+  postgresdb:
+    image: postgres:17
+    container_name: postgresdb
+    env_file:
+      - .env
+    volumes:
+      - ./postgresql_data:/var/lib/postgresql/data
+    ports:
+      - "54432:5432"
+    networks:
+      - http
+
+  ##### </Infrastructure services> #####
+
+  ##### <Domain services> #####
   identity-service:
     container_name: identity-service
     build:
@@ -74,6 +90,7 @@ services:
     networks:
       - http
 
+  ##### </Domain services> #####
 networks:
   http:
     name: network.${COMPOSE_PROJECT_NAME}

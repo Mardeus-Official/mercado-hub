@@ -1,0 +1,22 @@
+parameters:
+  level: 9
+  checkUninitializedProperties: true
+  checkBenevolentUnionTypes: true
+  reportUnmatchedIgnoredErrors: true
+  reportWrongPhpDocTypeInVarTag: true
+  treatPhpDocTypesAsCertain: false
+  parallel:
+    processTimeout: 720.0
+    jobSize: 100
+  tmpDir: var/cache/phpstan
+  paths:
+    - src
+    - migrations
+    - tests
+  excludePaths:
+    - phpstan-baseline.php
+  symfony:
+    containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    constantHassers: false
+includes:
+  - phpstan-baseline.php
